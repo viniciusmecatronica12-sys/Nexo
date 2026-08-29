@@ -320,11 +320,18 @@ function timeline(dt=DATE){
   return `<div class="event ${cls}"><span class="time">${esc(r.time)}</span><div class="t">${esc(f.title)}</div>${f.sub?`<div class="s">${esc(f.sub)}</div>`:""}</div>`
  }).join("")}</div>`:`<div class="empty">Nenhum registro neste dia.</div>`}</div>`
 }
+let configExpandida=false;
 function pageHome(){
- return `${!S.patient?`<div class="card" style="margin-bottom:12px"><div class="card-label">Configuração inicial</div><div class="form-grid"><div class="field full"><label>Quem está sendo cuidado?</label><input id="patientInline"></div></div><div class="inline"><button class="primary" data-a="save-patient">Salvar</button></div></div>`:""}
- ${hero()}${quick()}
+ return `${hero()}${quick()}
  <div class="section-head"><div><div class="section-title">Resumo de hoje</div><div class="section-sub">Tudo que foi registrado no aplicativo, com dimensão temporal</div></div></div>${summary()}
- <div class="section-head"><div><div class="section-title">Hoje, hora a hora</div><div class="section-sub">Visão unificada de medicação, água, alimentação, sono, estado, sintomas, jornada do cuidador e demais registros</div></div></div>${timeline(today())}`
+ <div class="section-head"><div><div class="section-title">Hoje, hora a hora</div><div class="section-sub">Visão unificada de medicação, água, alimentação, sono, estado, sintomas, jornada do cuidador e demais registros</div></div></div>${timeline(today())}
+ <div class="card" style="margin-top:24px">
+  <button class="acc-head" data-a="toggle-config" style="display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:none;padding:0;text-align:left;font:inherit;color:inherit">
+   <span class="card-label" style="margin:0">Configuração inicial${!S.patient?' <span class="quiet" style="color:var(--warning)">pendente</span>':""}</span>
+   <span style="font-size:18px;transform:rotate(${configExpandida?90:0}deg);transition:transform .15s">›</span>
+  </button>
+  ${configExpandida?`<div style="margin-top:14px"><div class="form-grid"><div class="field full"><label>Quem está sendo cuidado?</label><input id="patientInline" value="${esc(S.patient||"")}"></div></div><div class="inline"><button class="primary" data-a="save-patient">Salvar</button></div></div>`:""}
+ </div>`
 }
 
 /* ROUTINE */
@@ -379,8 +386,10 @@ function familyModal(){
  $("#modal").innerHTML=`<div class="overlay" data-a="overlay"><div class="sheet"><div class="handle"></div><div class="sheet-head"><div class="sheet-title">Família</div><button class="close" data-a="close">×</button></div>
  <div class="card" style="box-shadow:none"><div class="card-label">Quem está sendo cuidado</div><div class="field"><label>Nome</label><input data-root="patient" value="${esc(S.patient)}"></div></div>
  <div class="card" style="box-shadow:none"><div class="card-label">Sua conta<span class="quiet">${dbConectado?"conectado":"sem conexão"}</span></div>
-  <p class="muted" style="font-size:12px;margin:0 0 12px">Você está logado como <b>${esc(S.activeCaregiver||"—")}</b> (${esc((authUser&&authUser.email)||"")}). Vinicius, Luis e Nuri, cada um com sua própria conta, veem os mesmos registros — sincronizado automaticamente, em tempo real.</p>
-  ${!dbConectado?`<div class="empty" style="margin-bottom:12px">Sem conexão com o servidor agora. O que você registrar aqui fica salvo e sobe sozinho quando a internet voltar.</div>`:""}
+  <p class="muted" style="font-size:12px;margin:0 0 12px">Logado como ${esc((authUser&&authUser.email)||"")}. Vinicius, Luis e Nuri, cada um com sua própria conta, veem os mesmos registros — sincronizado automaticamente, em tempo real.</p>
+  <div class="field"><label>Seu nome (aparece nos registros)</label><input id="meuNome" value="${esc(S.activeCaregiver||"")}" placeholder="Vinicius, Luis ou Nuri"></div>
+  <div class="inline"><button class="secondary" data-a="save-name">Salvar nome</button></div>
+  ${!dbConectado?`<div class="empty" style="margin:12px 0">Sem conexão com o servidor agora. O que você registrar aqui fica salvo e sobe sozinho quando a internet voltar.</div>`:""}
   <div class="inline"><button class="secondary" data-a="sync-now">Sincronizar agora</button><button class="danger" data-a="logout">Sair da conta</button></div>
  </div>
  <div class="card" style="box-shadow:none"><div class="card-label">Outras pessoas da família</div>
@@ -422,7 +431,12 @@ function renderSheet(){
   body=`<div class="sheet-grid">${[["med","Medicação","Horário e dosagem","med"],["water","Água","Horário e quantidade","water"],["food","Alimentação","Refeição e quantidade","food"],["sleep","Sono","Dia, início e fim","moon"],["state","Estado","Dia, hora e observação","state"],["symptom","Sintoma","Dia, hora e sinal","alert"],["activity","Atividade","Dia, hora e duração","activity"],["evac","Evacuação","Dia, hora e aspecto","note"],["urine","Urina","Dia, hora e aspecto","water"],["note","Observação","Dia, hora e texto","note"]].map(x=>`<button class="sheet-action" data-a="sheet" data-sheet="${x[0]}">${icon(x[3])}<strong>${x[1]}</strong><small>${x[2]}</small></button>`).join("")}</div>`
  }else if(SHEET==="med"){
   title="Registrar medicação";
-  body=`${temporalFields("med")}<div class="form-grid" style="margin-top:10px"><div class="field full"><label>Medicamento</label><select id="medSelect"><option value="">Selecionar cadastrado ou digitar abaixo</option>${S.medications.map(m=>`<option value="${m.id}">${esc(m.name)} ${esc(m.dose||"")}</option>`).join("")}</select></div><div class="field"><label>Nome</label><input id="medName" placeholder="Ex.: Risperidona"></div><div class="field"><label>Dosagem administrada</label><input id="medDose" placeholder="Ex.: 2 mg / 1 comprimido"></div><div class="field full"><label>Observação</label><input id="medNote" placeholder="Ex.: após alimentação"></div></div><div class="inline"><button class="primary" data-a="save-med-record">Registrar</button></div>`
+  body=`${temporalFields("med")}
+  <div class="card-label" style="margin-top:14px">Medicações administradas agora<span class="quiet">toque em quantas precisar</span></div>
+  ${S.medications.length?`<div class="chips">${S.medications.map(m=>`<button class="chip" data-medtoggle="${m.id}">${esc(m.name)} ${esc(m.dose||"")}</button>`).join("")}</div>`:`<div class="empty">Nenhum medicamento cadastrado ainda — use "Gerenciar prescrições" para adicionar.</div>`}
+  <div class="form-grid" style="margin-top:14px"><div class="field"><label>Outro medicamento (opcional)</label><input id="medOutroNome" placeholder="Nome"></div><div class="field"><label>Dose do outro</label><input id="medOutroDose" placeholder="Ex.: 2 mg"></div>
+  <div class="field full"><label>Observação (vale para todos selecionados)</label><input id="medNote" placeholder="Ex.: após alimentação"></div></div>
+  <div class="inline"><button class="primary" data-a="save-med-record">Registrar</button></div>`
  }else if(SHEET==="water"){
   title="Registrar água";
   body=`${temporalFields("water")}<div class="form-grid" style="margin-top:10px"><div class="field full"><label>Quantidade em ml</label><input type="number" min="1" id="waterAmount" value="200"></div></div><div class="inline"><button class="primary" data-a="save-water">Registrar água</button></div>`
@@ -462,8 +476,8 @@ function renderSheet(){
  $("#modal").innerHTML=`<div class="overlay" data-a="overlay"><div class="sheet"><div class="handle"></div><div class="sheet-head">${SHEET!=="menu"?`<button class="back" data-a="sheet" data-sheet="menu">‹ voltar</button>`:""}<div class="sheet-title">${title}</div><button class="close" data-a="close">×</button></div>${body}</div></div>`;
  initPicks()
 }
-let PICKS={fala:null,agitacao:null,orientacao:null,moods:[],symptom:null};
-function initPicks(){PICKS={fala:null,agitacao:null,orientacao:null,moods:[],symptom:null}}
+let PICKS={fala:null,agitacao:null,orientacao:null,moods:[],symptom:null,meds:[]};
+function initPicks(){PICKS={fala:null,agitacao:null,orientacao:null,moods:[],symptom:null,meds:[]}}
 function closeModal(){SHEET=null;$("#modal").innerHTML=""}
 function registerScheduledMed(medId,scheduledTime){
  const m=medById(medId);if(!m)return;
@@ -474,15 +488,26 @@ function registerScheduledMed(medId,scheduledTime){
 
 /* EVENTS */
 document.addEventListener("click",e=>{
- const el=e.target.closest("[data-a], [data-pick], [data-mood], [data-symptom]");if(!el)return;
+ const el=e.target.closest("[data-a], [data-pick], [data-mood], [data-symptom], [data-medtoggle]");if(!el)return;
  if(el.dataset.pick){PICKS[el.dataset.pick]=+el.dataset.value;document.querySelectorAll(`[data-pick="${el.dataset.pick}"]`).forEach(x=>x.classList.toggle("on",x===el));return}
  if(el.dataset.mood){const v=el.dataset.mood,i=PICKS.moods.indexOf(v);i>=0?PICKS.moods.splice(i,1):PICKS.moods.push(v);el.classList.toggle("on");return}
+ if(el.dataset.medtoggle){const v=el.dataset.medtoggle,i=PICKS.meds.indexOf(v);i>=0?PICKS.meds.splice(i,1):PICKS.meds.push(v);el.classList.toggle("on");return}
  if(el.dataset.symptom){PICKS.symptom=el.dataset.symptom;document.querySelectorAll("[data-symptom]").forEach(x=>x.classList.toggle("on",x===el));return}
  const a=el.dataset.a;
  if(a==="overlay"&&e.target!==el)return;
  if(a==="tab"){TAB=el.dataset.tab;DATE=today();render();scrollTo({top:0,behavior:"smooth"});return}
  if(a==="family"){familyModal();return}
  if(a==="logout"){sair();return}
+ if(a==="save-name"){
+  const nome=$("#meuNome")?.value.trim();
+  if(!nome){toast("Digite um nome");return}
+  S.activeCaregiver=nome;
+  if(!S.caregivers.includes(nome))S.caregivers.push(nome);
+  save();renderHeader();familyModal();
+  if(authUser&&authUser.updateProfile)authUser.updateProfile({displayName:nome}).catch(()=>{});
+  toast("Nome salvo");
+  return
+ }
  if(a==="sync-now"){
   if(!fbDb){toast("Sem conexão configurada");return}
   fbDb.ref(FAMILY_PATH).once("value").then(snap=>{
@@ -500,12 +525,19 @@ document.addEventListener("click",e=>{
  if(a==="open-register"){SHEET="menu";renderSheet();return}
  if(a==="sheet"){SHEET=el.dataset.sheet;renderSheet();return}
  if(a==="close"||a==="overlay"){closeModal();return}
- if(a==="save-patient"){const v=$("#patientInline")?.value.trim();if(v){S.patient=v;save();toast("Paciente salvo");render()}return}
+ if(a==="toggle-config"){configExpandida=!configExpandida;render();return}
+ if(a==="save-patient"){const v=$("#patientInline")?.value.trim();if(v){S.patient=v;save();toast("Paciente salvo");configExpandida=false;render()}return}
  if(a==="register-scheduled-med"){registerScheduledMed(el.dataset.med,el.dataset.time);return}
  if(a==="save-med-record"){
-   const id=$("#medSelect").value,m=medById(id),name=$("#medName").value.trim()||m?.name,dose=$("#medDose").value.trim()||m?.dose;
-   if(!name||!dose){toast("Informe medicamento e dosagem");return}
-   addRecord("medication",{medicationId:id||null,name,dose,note:$("#medNote").value.trim()},$("#medDate").value,$("#medTime").value);toast("Medicação registrada");closeModal();render();return
+   const date=$("#medDate").value,time=$("#medTime").value,note=$("#medNote")?.value.trim()||"";
+   const outroNome=$("#medOutroNome")?.value.trim(),outroDose=$("#medOutroDose")?.value.trim();
+   const selecionadas=PICKS.meds.map(id=>medById(id)).filter(Boolean);
+   if(!selecionadas.length&&!outroNome){toast("Selecione ao menos um medicamento");return}
+   selecionadas.forEach(m=>addRecord("medication",{medicationId:m.id,name:m.name,dose:m.dose,note},date,time));
+   if(outroNome)addRecord("medication",{medicationId:null,name:outroNome,dose:outroDose,note},date,time);
+   const total=selecionadas.length+(outroNome?1:0);
+   toast(total>1?total+" medicações registradas":"Medicação registrada");
+   closeModal();render();return
  }
  if(a==="save-water"){const amount=+$("#waterAmount").value;if(amount<=0){toast("Informe a quantidade em ml");return}addRecord("water",{amountMl:amount},$("#waterDate").value,$("#waterTime").value);toast("Água registrada");closeModal();render();return}
  if(a==="save-food"){addRecord("meal",{meal:$("#foodMeal").value,amount:$("#foodAmount").value,note:$("#foodNote").value.trim()},$("#foodDate").value,$("#foodTime").value);toast("Alimentação registrada");closeModal();render();return}
@@ -680,37 +712,24 @@ function renderAuthGate(){
 let authDraft={name:"",email:""};
 function renderAuthBox(){
  const box=$("#authBox");if(!box)return;
+ authMode="login";
  box.innerHTML=`
   <h1>Nexo</h1>
   <p class="sub">Diário de cuidado da família</p>
-  <div class="auth-tabs">
-   <button class="${authMode==="login"?"on":""}" data-a="auth-mode" data-mode="login">Entrar</button>
-   <button class="${authMode==="signup"?"on":""}" data-a="auth-mode" data-mode="signup">Criar conta</button>
-  </div>
   <div id="authErr"></div>
-  ${authMode==="signup"?`<div class="field"><label>Seu nome</label><input id="authName" placeholder="Vinicius, Luis ou Nuri" value="${esc(authDraft.name)}"></div>`:""}
   <div class="field"><label>E-mail</label><input id="authEmail" type="email" autocomplete="email" value="${esc(authDraft.email)}"></div>
-  <div class="field"><label>Senha</label><input id="authPass" type="password" autocomplete="${authMode==="signup"?"new-password":"current-password"}"></div>
-  <button class="primary" data-a="auth-submit" ${authBusy?"disabled":""}>${authBusy?"Aguarde…":(authMode==="signup"?"Criar conta":"Entrar")}</button>
-  ${authMode==="login"?`<button class="auth-forgot" data-a="auth-forgot">Esqueci minha senha</button>`:""}
+  <div class="field"><label>Senha</label><input id="authPass" type="password" autocomplete="current-password"></div>
+  <button class="primary" data-a="auth-submit" ${authBusy?"disabled":""}>${authBusy?"Aguarde…":"Entrar"}</button>
+  <button class="auth-forgot" data-a="auth-forgot">Esqueci minha senha</button>
  `
 }
 function authErro(msg){$("#authErr").innerHTML=msg?`<div class="auth-err">${esc(msg)}</div>`:""}
 function submeterAuth(){
- const email=$("#authEmail").value.trim(),pass=$("#authPass").value,nome=$("#authName")?.value.trim();
+ const email=$("#authEmail").value.trim(),pass=$("#authPass").value;
  if(!email||!pass){authErro("Preencha e-mail e senha.");return}
- if(authMode==="signup"&&!nome){authErro("Diga seu nome.");return}
  authBusy=true;renderAuthBox();authErro("");
- const acao=authMode==="signup"
-  ?fbAuth.createUserWithEmailAndPassword(email,pass).then(cred=>
-    cred.user.updateProfile({displayName:nome}).then(()=>{
-     S.activeCaregiver=nome;
-     if(!S.caregivers.includes(nome))S.caregivers.push(nome);
-     save();renderHeader()
-    })
-   )
-  :fbAuth.signInWithEmailAndPassword(email,pass);
- acao.catch(err=>{authBusy=false;renderAuthBox();authErro(AUTH_ERROS[err.code]||err.message)})
+ fbAuth.signInWithEmailAndPassword(email,pass)
+  .catch(err=>{authBusy=false;renderAuthBox();authErro(AUTH_ERROS[err.code]||err.message)})
 }
 function esqueciSenha(){
  const email=$("#authEmail").value.trim();
