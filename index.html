@@ -7,7 +7,7 @@
 <title>Nexo — diário temporal de cuidado</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,600;6..72,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,600;6..72,700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
@@ -19,7 +19,7 @@
   --warning:#B57921;--warningSoft:#FFF2D8;--danger:#B84C42;--dangerSoft:#FDE8E5;
   --info:#4B6F8E;--infoSoft:#E9F1F8;
   --r-xl:28px;--r-lg:20px;--r-md:14px;--shadow:0 1px 2px rgba(20,31,24,.05),0 15px 35px -26px rgba(20,50,31,.35);
-  --serif:"Newsreader",Georgia,serif;--sans:"DM Sans",system-ui,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:"Newsreader",Georgia,serif;--sans:"Urbanist",system-ui,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 :root[data-theme="dark"]{
   --bg:#0D1210;--surface:#141B17;--surface2:#18211C;--surface3:#1D2A22;
@@ -186,6 +186,7 @@ function base(){
   patient:"",activeCaregiver:"",caregivers:["Vinicius","Luis","Nuri"],
   contacts:{psiquiatra:"",clinico:"",caps:"",farmacia:""},
   medications:[],
+  plan:{waterTargetMl:0,sleepTargetHours:0,activityTargetMinutes:0},
   records:[],
   createdAt:Date.now()
  }
@@ -294,21 +295,20 @@ function hero(){
  if(n)return `<div class="hero"><div class="hero-top"><div class="pill"><span class="dot"></span>${n.due?"Medicação pendente":"Próxima medicação"}</div><span class="num" style="font-size:11px;opacity:.7">${now()}</span></div>
  <div class="hero-title">${esc(n.med.name)}</div><div class="hero-meta">${esc(n.med.dose||"")} · programado para <strong>${esc(n.time)}</strong></div>
  <div class="hero-actions"><button class="primary" data-a="register-scheduled-med" data-med="${n.med.id}" data-time="${n.time}">Registrar administração</button></div></div>`;
+ if(!S.medications.length)return `<div class="hero"><div class="hero-top"><div class="pill"><span class="dot"></span>Sem prescrição cadastrada</div><span class="num" style="font-size:11px;opacity:.7">${now()}</span></div><div class="hero-title">Nenhum medicamento cadastrado ainda.</div><div class="hero-meta">Sem uma prescrição registrada, o app não tem com o que comparar para avisar pendências. Cadastre nome, dose e horários uma vez só.</div><div class="hero-actions"><button class="primary" data-a="sheet" data-sheet="manage-meds">Cadastrar prescrição</button></div></div>`;
  return `<div class="hero"><div class="hero-top"><div class="pill"><span class="dot"></span>Hoje em dia</div><span class="num" style="font-size:11px;opacity:.7">${now()}</span></div><div class="hero-title">Nenhuma medicação programada pendente.</div><div class="hero-meta">Todo registro feito no Nexo entra automaticamente na linha histórica com data e hora.</div><div class="hero-actions"><button class="primary" data-a="open-register">Registrar agora</button></div></div>`
-}
-function quick(){
- return `<div class="quick-strip">
- ${[["med","Medicação","med"],["water","Água","water"],["food","Alimentação","food"],["sleep","Sono","moon"],["state","Estado","state"],["symptom","Sintoma","alert"],["activity","Atividade","activity"],["note","Observação","note"]].map(x=>`<button class="quick" data-a="sheet" data-sheet="${x[0]}"><i>${icon(x[2])}</i><span>${x[1]}</span></button>`).join("")}</div>`
 }
 function summary(){
  const lm=latest("medication"),lw=latest("water"),ls=latest("state"),sl=latest("sleep"),cs=latest("caregiver_shift");
  const water=recs(today(),"water").reduce((a,r)=>a+(+r.amountMl||0),0);
  const sd=sleepDuration(sl);
+ const p=S.plan||{};
+ const waterMeta=+p.waterTargetMl||0, sonoMeta=+p.sleepTargetHours||0;
  return `<div class="summary-grid">
  <button class="summary" data-a="tab" data-tab="routine"><div class="l">Medicação</div><div class="v">${countType("medication")}</div><div class="s">${lm?`última ${lm.time}`:"nenhuma hoje"}</div></button>
- <button class="summary" data-a="tab" data-tab="routine"><div class="l">Água</div><div class="v">${water} ml</div><div class="s">${lw?`último registro ${lw.time}`:"nenhum registro"}</div></button>
+ <button class="summary" data-a="tab" data-tab="routine"><div class="l">Água</div><div class="v">${water}${waterMeta?`<span style="font-size:13px;color:var(--text3);font-family:var(--sans)"> / ${waterMeta}</span>`:""} ml</div><div class="s">${waterMeta?(water>=waterMeta?"meta atingida":"abaixo da meta"):(lw?`último registro ${lw.time}`:"nenhum registro")}</div></button>
  <button class="summary" data-a="tab" data-tab="state"><div class="l">Estado</div><div class="v">${countType("state")}</div><div class="s">${ls?`${ls.time} · ${esc(ls.summary||"registro")}`:"sem registro"}</div></button>
- <button class="summary" data-a="tab" data-tab="state"><div class="l">Sono</div><div class="v">${sd!=null?sd.toFixed(1).replace(".0","")+"h":"—"}</div><div class="s">${sl?`${sl.startTime||"?"}–${sl.endTime||"?"}`:"sem registro"}</div></button>
+ <button class="summary" data-a="tab" data-tab="state"><div class="l">Sono</div><div class="v">${sd!=null?sd.toFixed(1).replace(".0","")+"h":"—"}${sonoMeta?`<span style="font-size:13px;color:var(--text3);font-family:var(--sans)"> / ${sonoMeta}h</span>`:""}</div><div class="s">${sonoMeta&&sd!=null?(sd>=sonoMeta?"meta atingida":"abaixo da meta"):(sl?`${sl.startTime||"?"}–${sl.endTime||"?"}`:"sem registro")}</div></button>
  <button class="summary" data-a="family"><div class="l">Cuidador</div><div class="v">${cs?esc(cs.caregiverName||cs.caregiver||"—"):"—"}</div><div class="s">${cs?`${esc(cs.startTime||"?")}–${esc(cs.endTime||"?")}`:"jornada não registrada"}</div></button>
  </div>`
 }
@@ -322,7 +322,7 @@ function timeline(dt=DATE){
 }
 let configExpandida=false;
 function pageHome(){
- return `${hero()}${quick()}
+ return `${hero()}
  <div class="section-head"><div><div class="section-title">Resumo de hoje</div><div class="section-sub">Tudo que foi registrado no aplicativo, com dimensão temporal</div></div></div>${summary()}
  <div class="section-head"><div><div class="section-title">Hoje, hora a hora</div><div class="section-sub">Visão unificada de medicação, água, alimentação, sono, estado, sintomas, jornada do cuidador e demais registros</div></div></div>${timeline(today())}
  <div class="card" style="margin-top:24px">
@@ -346,9 +346,30 @@ function routineHistory(){
  const rs=recs(DATE).filter(r=>types.includes(r.type));
  return `<div class="card"><div class="card-label">Registros de rotina do dia</div>${rs.length?rs.map(r=>{const f=fmtRec(r);return `<div class="row"><div class="row-time">${r.time}</div><div class="row-main"><div class="row-title">${esc(f.title)}</div><div class="row-sub">${esc(f.sub)}</div></div><button class="status" data-a="delete-record" data-id="${r.id}">Excluir</button></div>`}).join(""):`<div class="empty">Nenhum registro de rotina neste dia.</div>`}</div>`
 }
+function planCard(){
+ const p=S.plan||{};
+ const water=recs(today(),"water").reduce((a,r)=>a+(+r.amountMl||0),0);
+ const sd=sleepDuration(latest("sleep"));
+ const ativMin=recs(today(),"activity").reduce((a,r)=>a+(+r.duration||0),0);
+ const linha=(rotulo,atual,meta,unidade)=>{
+  if(!meta)return"";
+  const ok=atual>=meta;
+  return `<div class="row"><div class="row-main"><div class="row-title">${rotulo}</div><div class="row-sub">${atual}${unidade} de ${meta}${unidade} hoje</div></div><span style="font-size:10.5px;font-weight:800;padding:5px 10px;border-radius:99px;white-space:nowrap;background:${ok?"var(--brandSoft)":"var(--warningSoft)"};color:${ok?"var(--brand)":"var(--warning)"}">${ok?"em dia":"pendente"}</span></div>`
+ };
+ const linhas=linha("Água",water,+p.waterTargetMl||0,"ml")+linha("Sono",sd!=null?+sd.toFixed(1):0,+p.sleepTargetHours||0,"h")+linha("Atividade física",ativMin,+p.activityTargetMinutes||0,"min");
+ return `<div class="card"><div class="card-label">Plano de cuidado esperado<span class="quiet">a meta que o app compara</span></div>
+ <p class="muted" style="font-size:12px;margin:0 0 12px">Preencha as metas combinadas com a equipe médica. Só o que for preenchido aqui gera comparação — o resto fica em branco sem problema.</p>
+ <div class="form-grid">
+  <div class="field"><label>Água (ml/dia)</label><input type="number" data-root="plan.waterTargetMl" value="${p.waterTargetMl||""}" placeholder="Ex.: 2000"></div>
+  <div class="field"><label>Sono (horas/noite)</label><input type="number" step="0.5" data-root="plan.sleepTargetHours" value="${p.sleepTargetHours||""}" placeholder="Ex.: 8"></div>
+  <div class="field full"><label>Atividade física (min/dia)</label><input type="number" data-root="plan.activityTargetMinutes" value="${p.activityTargetMinutes||""}" placeholder="Ex.: 30"></div>
+ </div>
+ ${linhas?`<div style="margin-top:8px">${linhas}</div>`:""}
+ </div>`
+}
 function pageRoutine(){
  return `<div class="section-head"><div><div class="section-title">Rotina</div><div class="section-sub">Todos os registros são datados e permanecem no histórico</div></div></div>
- ${dateSelector()}${medCard()}
+ ${dateSelector()}${medCard()}${planCard()}
  <div class="card"><div class="card-label">Registrar rotina</div><div class="quick-strip" style="margin-top:0">
  ${[["water","Água","water"],["food","Alimentação","food"],["activity","Atividade","activity"],["evac","Evacuação","note"],["urine","Urina","water"]].map(x=>`<button class="quick" data-a="sheet" data-sheet="${x[0]}"><i>${icon(x[2])}</i><span>${x[1]}</span></button>`).join("")}</div></div>
  ${routineHistory()}`
@@ -589,6 +610,8 @@ function mergeIncoming(remote){
  if(!S.patient&&remote.patient)S.patient=remote.patient;
  S.contacts=S.contacts||{};
  Object.keys(remote.contacts||{}).forEach(k=>{if(!S.contacts[k]&&remote.contacts[k])S.contacts[k]=remote.contacts[k]});
+ S.plan=S.plan||{};
+ Object.keys(remote.plan||{}).forEach(k=>{if(!S.plan[k]&&remote.plan[k])S.plan[k]=remote.plan[k]});
  const medIds=new Set(S.medications.map(m=>m.id));
  (remote.medications||[]).forEach(m=>{if(!medIds.has(m.id))S.medications.push(m)});
  const recIds=new Set(S.records.map(r=>r.id));
