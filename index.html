@@ -299,7 +299,7 @@ function hero(){
  return `<div class="hero"><div class="hero-top"><div class="pill"><span class="dot"></span>Hoje em dia</div><span class="num" style="font-size:11px;opacity:.7">${now()}</span></div><div class="hero-title">Nenhuma medicação programada pendente.</div><div class="hero-meta">Todo registro feito no Nexo entra automaticamente na linha histórica com data e hora.</div><div class="hero-actions"><button class="primary" data-a="open-register">Registrar agora</button></div></div>`
 }
 function summary(){
- const lm=latest("medication"),lw=latest("water"),ls=latest("state"),sl=latest("sleep"),cs=latest("caregiver_shift");
+ const lm=latest("medication"),lw=latest("water"),ls=latest("state"),sl=latest("sleep");
  const water=recs(today(),"water").reduce((a,r)=>a+(+r.amountMl||0),0);
  const sd=sleepDuration(sl);
  const p=S.plan||{};
@@ -309,7 +309,6 @@ function summary(){
  <button class="summary" data-a="tab" data-tab="routine"><div class="l">Água</div><div class="v">${water}${waterMeta?`<span style="font-size:13px;color:var(--text3);font-family:var(--sans)"> / ${waterMeta}</span>`:""} ml</div><div class="s">${waterMeta?(water>=waterMeta?"meta atingida":"abaixo da meta"):(lw?`último registro ${lw.time}`:"nenhum registro")}</div></button>
  <button class="summary" data-a="tab" data-tab="state"><div class="l">Estado</div><div class="v">${countType("state")}</div><div class="s">${ls?`${ls.time} · ${esc(ls.summary||"registro")}`:"sem registro"}</div></button>
  <button class="summary" data-a="tab" data-tab="state"><div class="l">Sono</div><div class="v">${sd!=null?sd.toFixed(1).replace(".0","")+"h":"—"}${sonoMeta?`<span style="font-size:13px;color:var(--text3);font-family:var(--sans)"> / ${sonoMeta}h</span>`:""}</div><div class="s">${sonoMeta&&sd!=null?(sd>=sonoMeta?"meta atingida":"abaixo da meta"):(sl?`${sl.startTime||"?"}–${sl.endTime||"?"}`:"sem registro")}</div></button>
- <button class="summary" data-a="family"><div class="l">Cuidador</div><div class="v">${cs?esc(cs.caregiverName||cs.caregiver||"—"):"—"}</div><div class="s">${cs?`${esc(cs.startTime||"?")}–${esc(cs.endTime||"?")}`:"jornada não registrada"}</div></button>
  </div>`
 }
 function timeline(dt=DATE){
@@ -321,8 +320,44 @@ function timeline(dt=DATE){
  }).join("")}</div>`:`<div class="empty">Nenhum registro neste dia.</div>`}</div>`
 }
 let configExpandida=false;
+let ESTADO_DIA=today();
+function ultimoEstadoDoDia(dt){const rs=recs(dt,"state");return rs.length?rs[rs.length-1]:null}
+function corNivel(i){return i==null?"var(--text3)":(i>=2?"var(--warning)":"var(--text)")}
+function estadoCard(){
+ const r=ultimoEstadoDoDia(ESTADO_DIA);
+ return `<div class="card">
+ <div class="date-nav" style="margin-bottom:${r?12:0}px">
+  <button class="square" data-a="estado-prev-dia">‹</button>
+  <div class="date-center"><strong>Último estado consciente</strong><span>${esc(fmt(ESTADO_DIA,true))}${ESTADO_DIA===today()?" · hoje":""}</span></div>
+  <button class="square" data-a="estado-next-dia" ${ESTADO_DIA>=today()?"disabled":""}>›</button>
+ </div>
+ ${r?`<div class="form-grid">
+  <div class="field"><label>Fala</label><div style="font-weight:700;color:${corNivel(r.fala)}">${r.fala!=null?SCALE.fala[r.fala]:"não registrado"}</div></div>
+  <div class="field"><label>Agitação</label><div style="font-weight:700;color:${corNivel(r.agitacao)}">${r.agitacao!=null?SCALE.agitacao[r.agitacao]:"não registrado"}</div></div>
+  <div class="field"><label>Orientação</label><div style="font-weight:700;color:${corNivel(r.orientacao)}">${r.orientacao!=null?SCALE.orientacao[r.orientacao]:"não registrado"}</div></div>
+  <div class="field"><label>Humor</label><div style="font-weight:700">${(r.mood&&r.mood.length)?esc(r.mood.join(", ")):"não registrado"}</div></div>
+ </div>
+ <p class="muted" style="font-size:11.5px;margin-top:10px">Registrado às ${esc(r.time)}${r.caregiver?" por "+esc(r.caregiver):""}${r.note?" — "+esc(r.note):""}</p>`
+ :`<div class="empty">Nenhum estado registrado neste dia.</div>`}
+ <div class="inline"><button class="secondary" data-a="sheet" data-sheet="state">Registrar estado</button></div>
+ </div>`
+}
+function estadoSemanaCard(){
+ const dias=[];for(let i=6;i>=0;i--)dias.push(addDay(today(),-i));
+ return `<div class="card" style="margin-top:16px"><div class="card-label">Resumo histórico<span class="quiet">últimos 7 dias</span></div>
+ ${dias.map(d=>{
+  const r=ultimoEstadoDoDia(d),rotulo=d===today()?"Hoje":fmt(d,true);
+  if(!r)return `<div class="row"><div class="row-time" style="width:76px">${esc(rotulo)}</div><div class="row-main"><div class="row-sub">sem registro</div></div></div>`;
+  return `<div class="row"><div class="row-time" style="width:76px">${esc(rotulo)}</div><div class="row-main">
+   <div class="row-title" style="color:${corNivel(r.fala)}">${r.fala!=null?SCALE.fala[r.fala]:"fala não registrada"}</div>
+   <div class="row-sub">${[r.agitacao!=null?SCALE.agitacao[r.agitacao]:"",r.orientacao!=null?SCALE.orientacao[r.orientacao]:""].filter(Boolean).join(" · ")}</div>
+  </div></div>`;
+ }).join("")}
+ </div>`
+}
 function pageHome(){
  return `${hero()}
+ <div style="margin-top:14px">${estadoCard()}</div>
  <div class="section-head"><div><div class="section-title">Resumo de hoje</div><div class="section-sub">Tudo que foi registrado no aplicativo, com dimensão temporal</div></div></div>${summary()}
  <div class="section-head"><div><div class="section-title">Hoje, hora a hora</div><div class="section-sub">Visão unificada de medicação, água, alimentação, sono, estado, sintomas, jornada do cuidador e demais registros</div></div></div>${timeline(today())}
  <div class="card" style="margin-top:24px">
@@ -331,7 +366,8 @@ function pageHome(){
    <span style="font-size:18px;transform:rotate(${configExpandida?90:0}deg);transition:transform .15s">›</span>
   </button>
   ${configExpandida?`<div style="margin-top:14px"><div class="form-grid"><div class="field full"><label>Quem está sendo cuidado?</label><input id="patientInline" value="${esc(S.patient||"")}"></div></div><div class="inline"><button class="primary" data-a="save-patient">Salvar</button></div></div>`:""}
- </div>`
+ </div>
+ ${estadoSemanaCard()}`
 }
 
 /* ROUTINE */
@@ -580,6 +616,8 @@ document.addEventListener("click",e=>{
  if(a==="delete-med"){S.medications=S.medications.filter(m=>m.id!==el.dataset.id);save();toast("Medicação removida da rotina");renderSheet();return}
  if(a==="delete-record"){if(confirm("Excluir este registro histórico?")){const eraJornada=el.closest(".sheet")?.querySelector(".sheet-title")?.textContent==="Família";removeRecord(el.dataset.id);toast("Registro excluído");if(eraJornada){familyModal();renderHeader()}else{render()}}return}
  if(a==="prev-day"){DATE=addDay(DATE,-1);render();return}
+ if(a==="estado-prev-dia"){ESTADO_DIA=addDay(ESTADO_DIA,-1);render();return}
+ if(a==="estado-next-dia"){if(ESTADO_DIA<today())ESTADO_DIA=addDay(ESTADO_DIA,1);render();return}
  if(a==="next-day"){DATE=addDay(DATE,1);render();return}
  if(a==="report-days"){REPORT_DAYS=+el.dataset.days;render();return}
  if(a==="copy-report"){const t=$("#report");t.select();navigator.clipboard?.writeText(t.value).then(()=>toast("Resumo copiado")).catch(()=>{document.execCommand("copy");toast("Resumo copiado")});return}
